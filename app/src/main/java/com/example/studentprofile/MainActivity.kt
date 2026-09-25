@@ -8,14 +8,27 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.widget.doOnTextChanged
 import com.example.studentprofile.databinding.ActivityMainBinding
+import com.example.studentprofile.model.Student
 import com.example.studentprofile.utils.gone
+import com.example.studentprofile.utils.show
 import com.example.studentprofile.utils.toAcademicRanking
 import com.example.studentprofile.utils.toast
+import com.example.studentprofile.utils.trimmedText
 
 class MainActivity : AppCompatActivity() {
     // Bước 1: Khai báo biến binding với lateinit var
     private lateinit var binding: ActivityMainBinding
+
+    // Bài 5: Đối tượng sinh viên hiện tại - Giữ nguyên thông tin đã nhập
+    private var currentStudent = Student(
+        id = "SV2026001",
+        name = "Ngo VO Quy",
+        className = "24T2",
+        email = "ngovoquy2006@gmail.com",
+        gpa = 3.8
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -36,40 +49,92 @@ class MainActivity : AppCompatActivity() {
         // Bước 4: Thao tác View trực tiếp, không lo Null!
         binding.tvWelcome.text = "Chào mừng bạn đến với ViewBinding!"
 
-        // --- Demo Bài 2 & Giữ nguyên thông tin sinh viên đã nhập ---
-        // 1. Thực hành với with: Gom nhóm thao tác hiển thị sinh viên
-        displayStudent("Ngo VO Quy", 3.8, "ngovoquy2006@gmail.com")
+        // Bài 5: Nạp dữ liệu ban đầu của sinh viên lên giao diện
+        bindStudentData(currentStudent)
 
-        // 2. Thực hành với let: Xử lý an toàn biến null (thử nghiệm với null để nạp ảnh mặc định)
+        // Bài 2: Nạp ảnh đại diện an toàn
         processAvatarUri(null)
 
-        // 3. Thực hành với also: Tính điểm hệ 10 và ghi log/toast hành động phụ
-        calculateAndAudit(3.8)
+        // Bài 4: Lắng nghe sự kiện người dùng gõ từng ký tự vào ô nhập điểm
+        binding.edtGpaInput.doOnTextChanged { text, start, before, count ->
+            val input = text?.toString()?.trim() ?: ""
 
-        // --- Bài 3: Sử dụng Extension Function Double.toAcademicRanking() ---
-        val currentGpa = 3.8
-        binding.tvRanking.text = currentGpa.toAcademicRanking()
+            if (input.isNotEmpty()) {
+                // 1. Tự động xóa thông báo lỗi đỏ cũ khi người dùng bắt đầu sửa
+                binding.edtGpaInput.error = null
 
-        // 4. Thực hành với apply: Khi nhấn nút cập nhật, cấu hình Intent và mở DetailActivity
+                // 2. Xem trước xếp loại học lực tương ứng thời gian thực
+                val tempScore = input.toDoubleOrNull()
+                if (tempScore != null && tempScore in 0.0..4.0) {
+                    binding.tvPreviewRanking.text = "Dự kiến: ${tempScore.toAcademicRanking()}"
+                    binding.tvPreviewRanking.show() // Dùng extension
+                } else {
+                    binding.tvPreviewRanking.gone()
+                }
+            } else {
+                binding.tvPreviewRanking.gone()
+            }
+        }
+
+        // Bài 4: Validate điểm GPA với setOnClickListener
+        binding.btnUpdateGpa.setOnClickListener {
+            val rawInput = binding.edtGpaInput.trimmedText()
+
+            // 1. Chuyển đổi an toàn: trả về null nếu chuỗi là chữ hoặc rỗng
+            val newGpa = rawInput.toDoubleOrNull()
+
+            // 2. Kiểm tra điều kiện hợp lệ (từ 0.0 đến 4.0)
+            if (newGpa == null || newGpa !in 0.0..4.0) {
+                // Hiển thị icon cảnh báo và thông điệp lỗi ngay trên EditText
+                binding.edtGpaInput.error = "Vui lòng nhập GPA hợp lệ (0.0 - 4.0)"
+                binding.edtGpaInput.requestFocus()
+                toast("Điểm số không hợp lệ, vui lòng kiểm tra lại!")
+                return@setOnClickListener // Dừng thực thi
+            }
+
+            // 3. Nếu dữ liệu hợp lệ: Xóa thông báo lỗi và cập nhật
+            binding.edtGpaInput.error = null
+            updateStudentScore(newGpa)
+        }
+
+        // Mở màn hình chi tiết khi nhấn nút xem chi tiết
         binding.btnUpdate.setOnClickListener {
-            openDetailActivity("SV2026001")
+            openDetailActivity(currentStudent.id)
         }
     }
 
-    // --- 1. Kiểm tra Null Safety với Safe Call ?.let ---
+    // --- Bài 5: Hàm gán toàn bộ thông tin từ model lên các Views giao diện ---
+    private fun bindStudentData(student: Student) {
+        with(binding) {
+            tvStudentName.text = student.name
+            tvStudentDetails.text = "MSSV: ${student.id} • Lớp: ${student.className}"
+            tvStudentEmail.text = "Email: ${student.email}"
+            tvGpaBadge.text = "${student.gpa} GPA • ${student.gpa.toAcademicRanking()}"
+            edtGpaInput.setText(student.gpa.toString())
+            progressBar.gone()
+        }
+    }
+
+    // --- Bài 5: Cập nhật điểm số bất biến với phương thức copy() ---
+    private fun updateStudentScore(newGpa: Double) {
+        currentStudent = currentStudent.copy(gpa = newGpa)
+        bindStudentData(currentStudent)
+        calculateAndAudit(newGpa)
+        toast("Cập nhật điểm thành công: $newGpa")
+    }
+
+    // --- Bài 2: Kiểm tra Null Safety với Safe Call ?.let ---
     private fun processAvatarUri(avatarUri: Uri?) {
-        // Khối lệnh chỉ chạy khi avatarUri KHÁC NULL
         avatarUri?.let { validUri ->
             binding.imgAvatar.setImageURI(validUri)
             binding.tvAvatarStatus.text = "Đã tải ảnh đại diện!"
             toast("Ảnh đã được cập nhật")
         } ?: run {
-            // Chạy khi avatarUri == null
             binding.imgAvatar.setImageResource(R.drawable.ic_default_avatar)
         }
     }
 
-    // --- 2. Chèn hành động phụ (Side-Effects) với 'also' ---
+    // --- Bài 2: Chèn hành động phụ (Side-Effects) với 'also' ---
     private fun calculateAndAudit(rawScore: Double): Double {
         return (rawScore * 10.0 / 4.0)
             .also { finalScore ->
@@ -80,23 +145,11 @@ class MainActivity : AppCompatActivity() {
             }
     }
 
-    // --- 3. Gom nhóm thao tác hiển thị với 'with(binding)' và Extension '.gone()' ---
-    private fun displayStudent(name: String, gpa: Double, email: String) {
-        // Bên trong with(binding), mọi View thuộc binding đều là 'this'
-        with(binding) {
-            tvName.text = name
-            tvGpa.text = "Điểm tích lũy: $gpa"
-            tvRanking.text = gpa.toAcademicRanking()
-            tvEmail.text = email
-            btnUpdate.isEnabled = true
-            progressBar.gone() // Sử dụng Extension Function từ Bài 3
-        }
-    }
-
-    // --- 4. Cấu hình Intent hoặc View mới với 'apply' ---
+    // --- Bài 2: Cấu hình Intent với 'apply' ---
     private fun openDetailActivity(studentId: String) {
         val detailIntent = Intent(this, DetailActivity::class.java).apply {
             putExtra("KEY_STUDENT_ID", studentId)
+            putExtra("KEY_STUDENT", currentStudent)
             putExtra("KEY_TIMESTAMP", System.currentTimeMillis())
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
