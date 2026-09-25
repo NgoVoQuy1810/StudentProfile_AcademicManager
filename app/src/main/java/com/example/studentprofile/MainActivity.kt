@@ -20,20 +20,23 @@ import com.example.studentprofile.utils.trimmedText
 
 class MainActivity : AppCompatActivity() {
     companion object {
-        private const val KEY_STUDENT_DATA = "EXTRA_KEY_STUDENT"
+        private const val KEY_STUDENT = "KEY_STUDENT"
     }
 
     // Bước 1: Khai báo biến binding với lateinit var
     private lateinit var binding: ActivityMainBinding
 
-    // Bài 5: Đối tượng sinh viên hiện tại - Giữ nguyên thông tin đã nhập
-    private var currentStudent = Student(
+    // Dữ liệu sinh viên mặc định - Giữ nguyên thông tin sẵn có của bạn
+    private val defaultStudent = Student(
         id = "SV2026001",
         name = "Ngo VO Quy",
         className = "24T2",
         email = "ngovoquy2006@gmail.com",
         gpa = 3.8
     )
+
+    // Đối tượng sinh viên hiện tại
+    private var currentStudent = defaultStudent
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,36 +57,33 @@ class MainActivity : AppCompatActivity() {
         // Bước 4: Thao tác View trực tiếp, không lo Null!
         binding.tvWelcome.text = "Chào mừng bạn đến với ViewBinding!"
 
-        // --- Bài 6: Khôi phục dữ liệu từ savedInstanceState khi xoay màn hình ---
+        // Khôi phục nếu vừa xoay màn hình (Bài 6)
         @Suppress("DEPRECATION")
         val restoredStudent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            savedInstanceState?.getSerializable(KEY_STUDENT_DATA, Student::class.java)
+            savedInstanceState?.getSerializable(KEY_STUDENT, Student::class.java)
         } else {
-            savedInstanceState?.getSerializable(KEY_STUDENT_DATA) as? Student
+            savedInstanceState?.getSerializable(KEY_STUDENT) as? Student
         }
         restoredStudent?.let {
             currentStudent = it
         }
 
-        // Bài 5: Nạp dữ liệu sinh viên lên giao diện (đã khôi phục hoặc mặc định ban đầu)
+        // Gán dữ liệu sinh viên lên Views
         bindStudentData(currentStudent)
 
-        // Bài 2: Nạp ảnh đại diện an toàn
+        // Nạp ảnh đại diện an toàn
         processAvatarUri(null)
 
-        // Bài 4: Lắng nghe sự kiện người dùng gõ từng ký tự vào ô nhập điểm
+        // Lắng nghe sự kiện người dùng gõ từng ký tự vào ô nhập điểm (Realtime preview)
         binding.edtGpaInput.doOnTextChanged { text, start, before, count ->
             val input = text?.toString()?.trim() ?: ""
 
             if (input.isNotEmpty()) {
-                // 1. Tự động xóa thông báo lỗi đỏ cũ khi người dùng bắt đầu sửa
                 binding.edtGpaInput.error = null
-
-                // 2. Xem trước xếp loại học lực tương ứng thời gian thực
                 val tempScore = input.toDoubleOrNull()
                 if (tempScore != null && tempScore in 0.0..4.0) {
                     binding.tvPreviewRanking.text = "Dự kiến: ${tempScore.toAcademicRanking()}"
-                    binding.tvPreviewRanking.show() // Dùng extension
+                    binding.tvPreviewRanking.show()
                 } else {
                     binding.tvPreviewRanking.gone()
                 }
@@ -92,40 +92,47 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Bài 4: Validate điểm GPA với setOnClickListener
+        // Bắt sự kiện cập nhật điểm
         binding.btnUpdateGpa.setOnClickListener {
             val rawInput = binding.edtGpaInput.trimmedText()
+            val gpa = rawInput.toDoubleOrNull()
 
-            // 1. Chuyển đổi an toàn: trả về null nếu chuỗi là chữ hoặc rỗng
-            val newGpa = rawInput.toDoubleOrNull()
-
-            // 2. Kiểm tra điều kiện hợp lệ (từ 0.0 đến 4.0)
-            if (newGpa == null || newGpa !in 0.0..4.0) {
-                // Hiển thị icon cảnh báo và thông điệp lỗi ngay trên EditText
-                binding.edtGpaInput.error = "Vui lòng nhập GPA hợp lệ (0.0 - 4.0)"
+            if (gpa == null || gpa !in 0.0..4.0) {
+                binding.edtGpaInput.error = "GPA phải từ 0.0 đến 4.0"
                 binding.edtGpaInput.requestFocus()
                 toast("Điểm số không hợp lệ, vui lòng kiểm tra lại!")
-                return@setOnClickListener // Dừng thực thi
+                return@setOnClickListener
             }
 
-            // 3. Nếu dữ liệu hợp lệ: Xóa thông báo lỗi và cập nhật
             binding.edtGpaInput.error = null
-            updateStudentScore(newGpa)
+            currentStudent = currentStudent.copy(gpa = gpa)
+            bindStudentData(currentStudent)
+            calculateAndAudit(gpa)
+            toast("Đã cập nhật GPA thành công!")
         }
 
-        // Mở màn hình chi tiết khi nhấn nút xem chi tiết
+        // Bắt sự kiện khôi phục mặc định (Reset)
+        binding.btnReset.setOnClickListener {
+            currentStudent = defaultStudent
+            bindStudentData(currentStudent)
+            binding.edtGpaInput.error = null
+            binding.tvPreviewRanking.gone()
+            toast("Đã khôi phục dữ liệu ban đầu!")
+        }
+
+        // Xem chi tiết sinh viên (mở DetailActivity)
         binding.btnUpdate.setOnClickListener {
             openDetailActivity(currentStudent.id)
         }
     }
 
-    // --- Bài 6: Lưu dữ liệu trước khi Activity bị hủy do xoay màn hình ---
+    // Lưu dữ liệu trước khi Activity bị hủy do xoay màn hình
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        outState.putSerializable(KEY_STUDENT_DATA, currentStudent)
+        outState.putSerializable(KEY_STUDENT, currentStudent)
     }
 
-    // --- Bài 5: Hàm gán toàn bộ thông tin từ model lên các Views giao diện ---
+    // Hàm gán toàn bộ thông tin từ model lên các Views giao diện
     private fun bindStudentData(student: Student) {
         with(binding) {
             tvStudentName.text = student.name
@@ -137,15 +144,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // --- Bài 5: Cập nhật điểm số bất biến với phương thức copy() ---
-    private fun updateStudentScore(newGpa: Double) {
-        currentStudent = currentStudent.copy(gpa = newGpa)
-        bindStudentData(currentStudent)
-        calculateAndAudit(newGpa)
-        toast("Cập nhật điểm thành công: $newGpa")
-    }
-
-    // --- Bài 2: Kiểm tra Null Safety với Safe Call ?.let ---
+    // Kiểm tra Null Safety với Safe Call ?.let
     private fun processAvatarUri(avatarUri: Uri?) {
         avatarUri?.let { validUri ->
             binding.imgAvatar.setImageURI(validUri)
@@ -156,7 +155,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // --- Bài 2: Chèn hành động phụ (Side-Effects) với 'also' ---
+    // Chèn hành động phụ (Side-Effects) với 'also'
     private fun calculateAndAudit(rawScore: Double): Double {
         return (rawScore * 10.0 / 4.0)
             .also { finalScore ->
@@ -167,7 +166,7 @@ class MainActivity : AppCompatActivity() {
             }
     }
 
-    // --- Bài 2: Cấu hình Intent với 'apply' ---
+    // Cấu hình Intent với 'apply'
     private fun openDetailActivity(studentId: String) {
         val detailIntent = Intent(this, DetailActivity::class.java).apply {
             putExtra("KEY_STUDENT_ID", studentId)
