@@ -2,6 +2,7 @@ package com.example.studentprofile
 
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.enableEdgeToEdge
@@ -18,6 +19,10 @@ import com.example.studentprofile.utils.toast
 import com.example.studentprofile.utils.trimmedText
 
 class MainActivity : AppCompatActivity() {
+    companion object {
+        private const val KEY_STUDENT_DATA = "EXTRA_KEY_STUDENT"
+    }
+
     // Bước 1: Khai báo biến binding với lateinit var
     private lateinit var binding: ActivityMainBinding
 
@@ -49,7 +54,18 @@ class MainActivity : AppCompatActivity() {
         // Bước 4: Thao tác View trực tiếp, không lo Null!
         binding.tvWelcome.text = "Chào mừng bạn đến với ViewBinding!"
 
-        // Bài 5: Nạp dữ liệu ban đầu của sinh viên lên giao diện
+        // --- Bài 6: Khôi phục dữ liệu từ savedInstanceState khi xoay màn hình ---
+        @Suppress("DEPRECATION")
+        val restoredStudent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            savedInstanceState?.getSerializable(KEY_STUDENT_DATA, Student::class.java)
+        } else {
+            savedInstanceState?.getSerializable(KEY_STUDENT_DATA) as? Student
+        }
+        restoredStudent?.let {
+            currentStudent = it
+        }
+
+        // Bài 5: Nạp dữ liệu sinh viên lên giao diện (đã khôi phục hoặc mặc định ban đầu)
         bindStudentData(currentStudent)
 
         // Bài 2: Nạp ảnh đại diện an toàn
@@ -101,6 +117,12 @@ class MainActivity : AppCompatActivity() {
         binding.btnUpdate.setOnClickListener {
             openDetailActivity(currentStudent.id)
         }
+    }
+
+    // --- Bài 6: Lưu dữ liệu trước khi Activity bị hủy do xoay màn hình ---
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putSerializable(KEY_STUDENT_DATA, currentStudent)
     }
 
     // --- Bài 5: Hàm gán toàn bộ thông tin từ model lên các Views giao diện ---
