@@ -4,13 +4,14 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
-import android.view.View
-import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.example.studentprofile.databinding.ActivityMainBinding
+import com.example.studentprofile.utils.gone
+import com.example.studentprofile.utils.toAcademicRanking
+import com.example.studentprofile.utils.toast
 
 class MainActivity : AppCompatActivity() {
     // Bước 1: Khai báo biến binding với lateinit var
@@ -35,7 +36,7 @@ class MainActivity : AppCompatActivity() {
         // Bước 4: Thao tác View trực tiếp, không lo Null!
         binding.tvWelcome.text = "Chào mừng bạn đến với ViewBinding!"
 
-        // --- Demo Bài 2: Thực hành với Scope Functions ---
+        // --- Demo Bài 2 & Giữ nguyên thông tin sinh viên đã nhập ---
         // 1. Thực hành với with: Gom nhóm thao tác hiển thị sinh viên
         displayStudent("Ngo VO Quy", 3.8, "ngovoquy2006@gmail.com")
 
@@ -45,15 +46,14 @@ class MainActivity : AppCompatActivity() {
         // 3. Thực hành với also: Tính điểm hệ 10 và ghi log/toast hành động phụ
         calculateAndAudit(3.8)
 
+        // --- Bài 3: Sử dụng Extension Function Double.toAcademicRanking() ---
+        val currentGpa = 3.8
+        binding.tvRanking.text = currentGpa.toAcademicRanking()
+
         // 4. Thực hành với apply: Khi nhấn nút cập nhật, cấu hình Intent và mở DetailActivity
         binding.btnUpdate.setOnClickListener {
             openDetailActivity("SV2026001")
         }
-    }
-
-    // --- Hàm tiện ích hỗ trợ hiển thị Toast ---
-    private fun toast(message: String) {
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 
     // --- 1. Kiểm tra Null Safety với Safe Call ?.let ---
@@ -80,15 +80,16 @@ class MainActivity : AppCompatActivity() {
             }
     }
 
-    // --- 3. Gom nhóm thao tác hiển thị với 'with(binding)' ---
+    // --- 3. Gom nhóm thao tác hiển thị với 'with(binding)' và Extension '.gone()' ---
     private fun displayStudent(name: String, gpa: Double, email: String) {
         // Bên trong with(binding), mọi View thuộc binding đều là 'this'
         with(binding) {
             tvName.text = name
             tvGpa.text = "Điểm tích lũy: $gpa"
+            tvRanking.text = gpa.toAcademicRanking()
             tvEmail.text = email
             btnUpdate.isEnabled = true
-            progressBar.visibility = View.GONE
+            progressBar.gone() // Sử dụng Extension Function từ Bài 3
         }
     }
 
