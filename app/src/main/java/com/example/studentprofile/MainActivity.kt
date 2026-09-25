@@ -6,6 +6,7 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.enableEdgeToEdge
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -15,6 +16,7 @@ import com.example.studentprofile.model.Student
 import com.example.studentprofile.utils.gone
 import com.example.studentprofile.utils.show
 import com.example.studentprofile.utils.toAcademicRanking
+import com.example.studentprofile.utils.toRankingColor
 import com.example.studentprofile.utils.toast
 import com.example.studentprofile.utils.trimmedText
 
@@ -68,7 +70,7 @@ class MainActivity : AppCompatActivity() {
             currentStudent = it
         }
 
-        // Gán dữ liệu sinh viên lên Views
+        // Gán dữ liệu sinh viên lên Views (kèm đổi màu badge động)
         bindStudentData(currentStudent)
 
         // Nạp ảnh đại diện an toàn
@@ -83,6 +85,7 @@ class MainActivity : AppCompatActivity() {
                 val tempScore = input.toDoubleOrNull()
                 if (tempScore != null && tempScore in 0.0..4.0) {
                     binding.tvPreviewRanking.text = "Dự kiến: ${tempScore.toAcademicRanking()}"
+                    binding.tvPreviewRanking.setTextColor(tempScore.toRankingColor())
                     binding.tvPreviewRanking.show()
                 } else {
                     binding.tvPreviewRanking.gone()
@@ -111,13 +114,27 @@ class MainActivity : AppCompatActivity() {
             toast("Đã cập nhật GPA thành công!")
         }
 
-        // Bắt sự kiện khôi phục mặc định (Reset)
+        // Tự mở rộng 2: Nút Khôi phục kèm Dialog Xác nhận (AlertDialog với apply)
         binding.btnReset.setOnClickListener {
-            currentStudent = defaultStudent
-            bindStudentData(currentStudent)
-            binding.edtGpaInput.error = null
-            binding.tvPreviewRanking.gone()
-            toast("Đã khôi phục dữ liệu ban đầu!")
+            AlertDialog.Builder(this).apply {
+                setTitle("Xác nhận khôi phục")
+                setMessage("Bạn có chắc chắn muốn đặt lại điểm GPA ban đầu (${defaultStudent.gpa}) không?")
+                setNegativeButton("Hủy") { dialog, _ ->
+                    dialog.dismiss()
+                }
+                setPositiveButton("Đồng ý") { _, _ ->
+                    currentStudent = defaultStudent
+                    bindStudentData(currentStudent)
+                    binding.edtGpaInput.error = null
+                    binding.tvPreviewRanking.gone()
+                    toast("Đã khôi phục dữ liệu ban đầu!")
+                }
+            }.show()
+        }
+
+        // Tự mở rộng 3: Nút Gửi Email Báo cáo Kết quả (Implicit Intent với apply)
+        binding.btnSendReport.setOnClickListener {
+            sendEmailReport(currentStudent)
         }
 
         // Xem chi tiết sinh viên (mở DetailActivity)
@@ -139,8 +156,35 @@ class MainActivity : AppCompatActivity() {
             tvStudentDetails.text = "MSSV: ${student.id} • Lớp: ${student.className}"
             tvStudentEmail.text = "Email: ${student.email}"
             tvGpaBadge.text = "${student.gpa} GPA • ${student.gpa.toAcademicRanking()}"
+
+            // Tự mở rộng 1: Đổi màu chữ của tvGpaBadge động theo ngưỡng học lực
+            tvGpaBadge.setTextColor(student.gpa.toRankingColor())
+
             edtGpaInput.setText(student.gpa.toString())
             progressBar.gone()
+        }
+    }
+
+    // Tự mở rộng 3: Gửi email báo cáo kết quả học tập qua Implicit Intent
+    private fun sendEmailReport(student: Student) {
+        val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
+            data = Uri.parse("mailto:${student.email}")
+            putExtra(Intent.EXTRA_SUBJECT, "[Báo cáo học tập] Sinh viên ${student.name} - MSSV ${student.id}")
+            putExtra(
+                Intent.EXTRA_TEXT,
+                """
+                Họ và tên: ${student.name}
+                MSSV: ${student.id}
+                Lớp: ${student.className}
+                Điểm GPA: ${student.gpa}
+                Xếp loại: ${student.gpa.toAcademicRanking()}
+                """.trimIndent()
+            )
+        }
+        try {
+            startActivity(Intent.createChooser(emailIntent, "Chọn ứng dụng gửi email"))
+        } catch (e: Exception) {
+            toast("Không tìm thấy ứng dụng email phù hợp!")
         }
     }
 

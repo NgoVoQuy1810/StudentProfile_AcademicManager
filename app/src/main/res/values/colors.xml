@@ -6,6 +6,7 @@
     <color name="card_bg">#243342</color>
     <color name="btn_update">#34B469</color>
     <color name="btn_reset">#4E5D6C</color>
+    <color name="btn_email">#00BCD4</color>
     <color name="text_secondary">#B0BEC5</color>
     <color name="preview_blue">#64B5F6</color>
 </resources>

@@ -1,6 +1,7 @@
 package com.example.studentprofile.utils
 
 import android.content.Context
+import android.graphics.Color
 import android.view.View
 import android.widget.EditText
 import android.widget.Toast
@@ -26,4 +27,12 @@ fun Double.toAcademicRanking(): String = when {
     this >= 2.0 -> "Trung bình (Average)"
     this >= 1.0 -> "Yếu (Weak)"
     else        -> "Kém (Poor)"
+}
+
+// --- 5. Mở rộng 1: Trả về mã màu theo ngưỡng xếp loại học lực ---
+fun Double.toRankingColor(): Int = when {
+    this >= 3.6 -> Color.parseColor("#34B469") // Xanh lá cây (Xuất sắc)
+    this >= 3.2 -> Color.parseColor("#00BCD4") // Xanh dương Cyan (Giỏi)
+    this >= 2.5 -> Color.parseColor("#FF9800") // Cam Amber (Khá)
+    else        -> Color.parseColor("#F44336") // Đỏ (Trung bình / Yếu)
 }
